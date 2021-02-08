@@ -6,8 +6,8 @@ const all_csv_global = {};
 
 const not_there = [];
 
-const ac_all_csv = fs.readFileSync('AC_Zoom1.csv', 'utf8');
-const ac_jaynagar_csv = fs.readFileSync('AC_malleswaram.csv', 'utf8');
+const ac_jaynagar_csv = fs.readFileSync('AC_Zoom1.csv', 'utf8');
+const ac_all_csv = fs.readFileSync('final_result/AC_Repair_In_Bangalore.csv', 'utf8');
 
 
 const ac_all = parse(ac_all_csv, {

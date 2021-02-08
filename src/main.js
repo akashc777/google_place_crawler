@@ -4,7 +4,11 @@ const fs = require('fs');
 
 const Apify = require('apify');
 
+let total_places_obj = {
+    total_places:0
+};
 
+let all_places = [];
 
 const typedefs = require('./typedefs'); // eslint-disable-line no-unused-vars
 
@@ -28,15 +32,32 @@ process.env.APIFY_LOCAL_STORAGE_DIR = "./apify_storage";
 // }
 
 
+apify_loop();
 
 
-
-Apify.main(async () => {
-    // clear apify storage 
+async function apify_loop() {
     fs.rmdirSync("./apify_storage", {recursive: true});
+    let rawdata = fs.readFileSync('INPUT.json');
+    let user_input = JSON.parse(rawdata);
+    const pin_array = user_input.postalCodeArray;
+    delete user_input.postalCodeArray;
+    for(let i =0; i<pin_array.length; i++){
+        await apify_main(pin_array[i].toString(), user_input);
+    } 
+    await new ObjectsToCsv(all_places).toDisk('./final_result/scrape_result.csv');
+};
+
+
+
+
+
+async function apify_main(pin, user_input){
+    // clear apify storage 
+    // fs.rmdirSync("./apify_storage", {recursive: true});
     let rawdata = fs.readFileSync('INPUT.json');
     let user_await = JSON.parse(rawdata);
     await Apify.setValue('INPUT', user_await);
+    
 
     const input = /** @type {typedefs.Input} */ (await Apify.getValue('INPUT'));
     // await Apify.setValue('INPUT', { foo: 'bar' });
@@ -50,13 +71,14 @@ Apify.main(async () => {
     makeInputBackwardsCompatible(input);
     validateInput(input);
 
+    const postalCode = pin;
 
 
     const {
         // Search and Start URLs
         startUrls, searchStringsArray,
         // Geolocation
-        lat, lng, country, state, city, postalCode, zoom = 10, polygon,
+        lat, lng, country, state, city,  zoom = 10, polygon,
         // browser and request options
         pageLoadTimeoutSec = 60, useChrome = false, maxConcurrency, maxPagesPerBrowser = 1, maxPageRetries = 6,
         // Misc
@@ -266,11 +288,20 @@ Apify.main(async () => {
     await placesCache.savePlaces();
 
     const dataset = await Apify.openDataset();
-    const all_data =  await dataset.getData();
+    const data =  await dataset.getData();
     
-    await new ObjectsToCsv(all_data.items).toDisk('./scrape_result.csv');
+    await new ObjectsToCsv(data.items).toDisk('./intermediate_results/scrape_result_'+postalCode+'.csv');
 
-    console.log(all_data.items);
+    console.log(data.items);
     log.info('Scraping finished!');
-});
 
+    all_places = [...all_places, ...data.items];
+
+    total_places_obj.total_places = all_places.length;
+    fs.writeFileSync("TOTAL_PLACES.json", JSON.stringify(total_places_obj,null, '\t')); 
+
+    await dataset.drop();
+    const store = await Apify.openKeyValueStore();
+    await store.drop();
+
+}
